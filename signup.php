@@ -3,6 +3,7 @@
 require_once '../../config.php';
 require_once 'lib.php';
 require_once 'signup_form.php';
+
 global $DB;
 
 $s = required_param('s', PARAM_INT); // facetoface session ID
@@ -11,18 +12,18 @@ $backtoallsessions = optional_param('backtoallsessions', 0, PARAM_INT);
 if (!$session = facetoface_get_session($s)) {
     print_error('error:incorrectcoursemodulesession', 'facetoface');
 }
-if (!$facetoface = $DB->get_record('facetoface', array('id'=>$session->facetoface))) {
+if (!$facetoface = $DB->get_record('facetoface', array('id' => $session->facetoface))) {
     print_error('error:incorrectfacetofaceid', 'facetoface');
 }
-if (!$course = $DB->get_record('course', array('id'=>$facetoface->course))) {
+if (!$course = $DB->get_record('course', array('id' => $facetoface->course))) {
     print_error('error:coursemisconfigured', 'facetoface');
 }
 if (!$cm = get_coursemodule_from_instance("facetoface", $facetoface->id, $course->id)) {
     print_error('error:incorrectcoursemoduleid', 'facetoface');
 }
 
-require_course_login($course);
-$context = get_context_instance(CONTEXT_COURSE, $course->id);
+require_course_login($course, true, $cm);
+$context = context_course::instance($course->id);
 require_capability('mod/facetoface:view', $context);
 
 $returnurl = "$CFG->wwwroot/course/view.php?id=$course->id";
@@ -31,16 +32,12 @@ if ($backtoallsessions) {
 }
 
 $pagetitle = format_string($facetoface->name);
-//$navlinks[] = array('name' => get_string('modulenameplural', 'facetoface'), 'link' => "index.php?id=$course->id", 'type' => 'title');
-//$navlinks[] = array('name' => $pagetitle, 'link' => '', 'type' => 'activityinstance');
-//$navigation = build_navigation($navlinks);
 
 $PAGE->set_cm($cm);
-$PAGE->set_url('/mod/facetoface/view.php',array('id'=>$cm->id));
+$PAGE->set_url('/mod/facetoface/signup.php', array('s' => $s, 'backtoallsessions' => $backtoallsessions));
+
 $PAGE->set_title($pagetitle);
 $PAGE->set_heading($course->fullname);
-echo $OUTPUT->header();
-
 
 // Guests can't signup for a session, so offer them a choice of logging in or going back.
 if (isguestuser()) {
@@ -49,16 +46,14 @@ if (isguestuser()) {
         $loginurl = str_replace('http:','https:', $loginurl);
     }
 
-    print_header_simple($pagetitle, '', $navigation, '', '', true,
-                    update_module_button($cm->id, $course->id, get_string('modulename', 'facetoface')));
-    notice_yesno('<p>' . get_string('guestsno', 'facetoface') . "</p>\n\n</p>" .
-        get_string('liketologin') . '</p>', $loginurl, get_referer(false));
-    //print_footer();
-	 echo $OUTPUT->footer();    
+    echo $OUTPUT->header();
+    $out = html_writer::tag('p', get_string('guestsno', 'facetoface')) .
+        html_writer::empty_tag('br') .
+        html_writer::tag('p', get_string('continuetologin', 'facetoface'));
+    echo $OUTPUT->confirm($out, $loginurl, get_referer(false));
+    echo $OUTPUT->footer();
     exit();
 }
-
-require_capability('mod/facetoface:signup', $context);
 
 $manageremail = false;
 if (get_config(NULL, 'facetoface_addchangemanageremail')) {
@@ -68,7 +63,7 @@ if (get_config(NULL, 'facetoface_addchangemanageremail')) {
 $showdiscountcode = ($session->discountcost > 0);
 
 $mform = new mod_facetoface_signup_form(null, compact('s', 'backtoallsessions', 'manageremail', 'showdiscountcode'));
-if ($mform->is_cancelled()){
+if ($mform->is_cancelled()) {
     redirect($returnurl);
 }
 
@@ -86,54 +81,47 @@ if ($fromform = $mform->get_data()) { // Form submitted
     // Get signup type
     if (!$session->datetimeknown) {
         $statuscode = MDL_F2F_STATUS_WAITLISTED;
-    } elseif (facetoface_get_num_attendees($session->id) < $session->capacity) {
+    } else if (facetoface_get_num_attendees($session->id) < $session->capacity) {
         // Save available
         $statuscode = MDL_F2F_STATUS_BOOKED;
     } else {
         $statuscode = MDL_F2F_STATUS_WAITLISTED;
     }
 
-    if (!facetoface_session_has_capacity($session, $context)) {
+    if (!facetoface_session_has_capacity($session, $context) && (!$session->allowoverbook)) {
         print_error('sessionisfull', 'facetoface', $returnurl);
-    }
-    elseif (facetoface_get_user_submissions($facetoface->id, $USER->id)) {
+    } else if (facetoface_get_user_submissions($facetoface->id, $USER->id)) {
         print_error('alreadysignedup', 'facetoface', $returnurl);
-    }
-    elseif (facetoface_manager_needed($facetoface) && !facetoface_get_manageremail($USER->id)){
+    } else if (facetoface_manager_needed($facetoface) && !facetoface_get_manageremail($USER->id)) {
         print_error('error:manageremailaddressmissing', 'facetoface', $returnurl);
-    }
-    elseif ($submissionid = facetoface_user_signup($session, $facetoface, $course, $fromform->discountcode, $fromform->notificationtype, $statuscode)) {
+    } else if ($submissionid = facetoface_user_signup($session, $facetoface, $course, $fromform->discountcode, $fromform->notificationtype, $statuscode)) {
         add_to_log($course->id, 'facetoface','signup',"signup.php?s=$session->id", $session->id, $cm->id);
 
         $message = get_string('bookingcompleted', 'facetoface');
         if ($session->datetimeknown && $facetoface->confirmationinstrmngr) {
-            $message .= '<br /><br />'.get_string('confirmationsentmgr', 'facetoface');
-        }
-        else {
-            $message .= '<br /><br />'.get_string('confirmationsent', 'facetoface');
+            $message .= html_writer::empty_tag('br') . html_writer::empty_tag('br') . get_string('confirmationsentmgr', 'facetoface');
+        } else {
+            $message .= html_writer::empty_tag('br') . html_writer::empty_tag('br') . get_string('confirmationsent', 'facetoface');
         }
 
         $timemessage = 4;
         redirect($returnurl, $message, $timemessage);
-    }
-    else {
+    } else {
         add_to_log($course->id, 'facetoface','signup (FAILED)',"signup.php?s=$session->id", $session->id, $cm->id);
         print_error('error:problemsigningup', 'facetoface', $returnurl);
     }
 
     redirect($returnurl);
-}
-elseif ($manageremail !== false) {
+} else if ($manageremail !== false) {
     // Set values for the form
-    $toform = new object();
+    $toform = new stdClass();
     $toform->manageremail = $manageremail;
     $mform->set_data($toform);
 }
 
-//print_header_simple($pagetitle, '', $navigation, '', '', true,
-//                    update_module_button($cm->id, $course->id, get_string('modulename', 'facetoface')));
+echo $OUTPUT->header();
 
-$heading = get_string('signupfor', 'facetoface').$facetoface->name;
+$heading = get_string('signupfor', 'facetoface', $facetoface->name);
 
 $viewattendees = has_capability('mod/facetoface:viewattendees', $context);
 $signedup = facetoface_check_signup($facetoface->id);
@@ -142,48 +130,58 @@ if ($signedup and $signedup != $session->id) {
     print_error('error:signedupinothersession', 'facetoface', $returnurl);
 }
 
-//print_box_start();
-//print_heading($heading, 'center');Notice: Undefined variable: navigation in /var/www/moodle20/mod/facetoface/signup.php on line 133
-
 echo $OUTPUT->box_start();
 echo $OUTPUT->heading($heading);
 
+$timenow = time();
 
-if (!$signedup and !facetoface_session_has_capacity($session, $context)) {
-    print_error('sessionisfull', 'facetoface', $returnurl);
-    //print_box_end();
-    //print_footer($course);
-	 echo $OUTPUT->box_end();
-	 echo $OUTPUT->footer($course);    
-    
+if ($session->datetimeknown && facetoface_has_session_started($session, $timenow)) {
+    $inprogress_str = get_string('cannotsignupsessioninprogress', 'facetoface');
+    $over_str = get_string('cannotsignupsessionover', 'facetoface');
+
+    $errorstring = facetoface_is_session_in_progress($session, $timenow) ? $inprogress_str : $over_str;
+
+    echo html_writer::empty_tag('br') . $errorstring;
+    echo $OUTPUT->box_end();
+    echo $OUTPUT->footer($course);
     exit;
 }
 
-facetoface_print_session($session, $viewattendees);
+if (!$signedup && !facetoface_session_has_capacity($session, $context) && (!$session->allowoverbook)) {
+    print_error('sessionisfull', 'facetoface', $returnurl);
+    echo $OUTPUT->box_end();
+    echo $OUTPUT->footer($course);
+    exit;
+}
+
+echo facetoface_print_session($session, $viewattendees);
 
 if ($signedup) {
-    // Cancellation link
-    echo '<a href="'.$CFG->wwwroot.'/mod/facetoface/cancelsignup.php?s='.$session->id.'&amp;backtoallsessions='.$backtoallsessions.'" title="'.get_string('cancelbooking','facetoface').'">'.get_string('cancelbooking', 'facetoface').'</a>';
-
+    if (!($session->datetimeknown && facetoface_has_session_started($session, $timenow))) {
+        // Cancellation link
+        echo html_writer::link(new moodle_url('cancelsignup.php', array('s' => $session->id, 'backtoallsessions' => $backtoallsessions)), get_string('cancelbooking', 'facetoface'), array('title' => get_string('cancelbooking', 'facetoface')));
+        echo ' &ndash; ';
+    }
     // See attendees link
     if ($viewattendees) {
-        echo ' &ndash; <a href="'.$CFG->wwwroot.'/mod/facetoface/attendees.php?s='.$session->id.'&amp;backtoallsessions='.$backtoallsessions.'" title="'.get_string('seeattendees', 'facetoface').'">'.get_string('seeattendees', 'facetoface').'</a>';
+        echo html_writer::link(new moodle_url('attendees.php', array('s' => $session->id, 'backtoallsessions' => $backtoallsessions)), get_string('seeattendees', 'facetoface'), array('title' => get_string('seeattendees', 'facetoface')));
     }
 
-    echo '<br/><a href="'.$returnurl.'" title="'.get_string('goback', 'facetoface').'">'.get_string('goback', 'facetoface').'</a>';
+    echo html_writer::empty_tag('br') . html_writer::link($returnurl, get_string('goback', 'facetoface'), array('title' => get_string('goback', 'facetoface')));
 }
 // Don't allow signup to proceed if a manager is required
-elseif (facetoface_manager_needed($facetoface) && !facetoface_get_manageremail($USER->id)){
+else if (facetoface_manager_needed($facetoface) && !facetoface_get_manageremail($USER->id)) {
     // Check to see if the user has a managers email set
-    echo '<p><strong>'.get_string('error:manageremailaddressmissing', 'facetoface').'</strong></p>';
-    echo '<br/><a href="'.$returnurl.'" title="'.get_string('goback', 'facetoface').'">'.get_string('goback', 'facetoface').'</a>';
-}
-else {
+    echo html_writer::tag('p', html_writer::tag('strong', get_string('error:manageremailaddressmissing', 'facetoface')));
+    echo html_writer::empty_tag('br') . html_writer::link($returnurl, get_string('goback', 'facetoface'), array('title' => get_string('goback', 'facetoface')));
+
+} else if (!has_capability('mod/facetoface:signup', $context)) {
+    echo html_writer::tag('p', html_writer::tag('strong', get_string('error:nopermissiontosignup', 'facetoface')));
+    echo html_writer::empty_tag('br') . html_writer::link($returnurl, get_string('goback', 'facetoface'), array('title' => get_string('goback', 'facetoface')));
+} else {
     // Signup form
     $mform->display();
 }
 
-//print_box_end();
-//print_footer($course);
 echo $OUTPUT->box_end();
 echo $OUTPUT->footer($course);

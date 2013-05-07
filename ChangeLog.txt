@@ -1,3 +1,89 @@
+2.2.3.1 (2013-01-04):
+Bug fixes:
+- Fix upgrade version number problem
+- Fix message when guest trys to signup to session
+
+2.2.3 (2013-01-03):
+Bug fixes:
+- Fix details editor for session so it saves correctly
+
+Improvements:
+- Make calendar events more configurable
+- Add new SVG icon (Moodle 2.4 compatibility)
+- Change style of table on session signup page to better display
+large amounts of content in the details of the session
+
+2.2.2 (2012-11-06):
+Bug fixes:
+- Prevent direct access to conditional activities
+- Ensure site calendar is updated when activity is updated
+- Fix hardcoded language string in attendees.php
+- Make sure notices are sent from email specified in settings
+- Fix fatal error when deleting data from custom session field
+- Fix display of images in facetoface description
+- Stop error being thrown when creating session
+
+Improvements:
+- Create new iCal UID for every session re-signup
+
+2.2.1 (2012-09-10):
+New Features
+- Add activity completion support
+- Add support for marking a course as in progress
+- Add event trigger to remove deleted users from session, this prevents
+deleted users from taking up space in a session after they are deleted.
+
+Improvements
+- Remove various unused files from Moodle 1.9 version
+- Change date format used to better support Windows (only effects servers)
+- Stop manager approving full sessions unless they have overbook permissions
+(previously threw an error)
+- Added module help (for new activity/resource panel in Moodle 2.3)
+
+Bug fixes:
+- Fix syntax error in version.php
+- Fix wording in default waitlist message
+- Fix logic around displaying sessions on course page
+- Fix issue where session isn't correctly marked as waitlisted
+- Fix displaying of Facetoface icon
+- Fix layout and link in module display on course page
+- Fix SQL that breaks in MSSQL when cancelling a session
+- Add addinstance capability (required for Moodle 2.3 compatibility)
+
+2.2.0 (2012-06-14):
+Improvements:
+- Ported to Moodle 2 codebase
+
+Bug fixes:
+- Various bug caused by porting
+
+1.8.0 (2011-11-24):
+Bug fixes:
+- Check mailed field exists before dropping to prevent errors on upgrade
+- Fixed errors in facetoface_get_trainer_roles()
+- Fixed bug with hour to minute conversion
+- Fix missing parameter in breadcrumb on attendees page
+- Add checks to sees if session is finished or in progress before allowing
+signup
+- Fix misuse of table API in various places
+- Fix custom fields to use new separator (; can now be used in custom fields)
+- Fix tests that were failing in MySQL
+- Simplify permissions check for approval
+
+Security fixes:
+- Fixed parameter cleaning searchtext on edit attendees page
+
+Improvements:
+- Improve unit test coverage
+- Improve code documentation
+- Add new English help files
+- Add validation to stop start date being after end date
+- Show no permission notification instead of error on signup page
+- Tidy up display of session roles
+- Add markup to module info for better styling
+- Add sitelog calls
+- Hide cancel session link if the session is finished
+
 1.6.2 (2010-10-21):
 Bug fixes:
 - Removed hardcoded references to the mdl_ DB prefix

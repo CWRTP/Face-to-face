@@ -9,31 +9,29 @@ $confirm = optional_param('confirm', false, PARAM_BOOL); // delete confirmationx
 
 $field = null;
 if ($id > 0) {
-    if (!$field = $DB->get_record('facetoface_session_field', 'id', $id)) {
-        error('Field ID is incorrect: '. $id);
+    if (!$field = $DB->get_record('facetoface_session_field', array('id' => $id))) {
+        print_error('error:fieldidincorrect', 'facetoface', '', $id);
     }
 }
 
-$contextsystem = get_context_instance(CONTEXT_SYSTEM);
+$PAGE->set_url('/mod/facetoface/customfield.php', array('id' => $id, 'd' => $d, 'confirm' => $confirm));
 
-require_login(0, false);
+admin_externalpage_setup('managemodules'); // this is hacky, tehre should be a special hidden page for it
+
+$contextsystem = context_system::instance();
+
 require_capability('moodle/site:config', $contextsystem);
 
 $returnurl = "$CFG->wwwroot/admin/settings.php?section=modsettingfacetoface";
 
 // Header
-$navlinks = array();
-$navlinks[] = array('name' => get_string('administration'));
-$navlinks[] = array('name' => get_string('managemodules'));
-$navlinks[] = array('name' => get_string('activities'));
-$navlinks[] = array('name' => get_string('modulename', 'facetoface'));
 
 $title = get_string('addnewfield', 'facetoface');
 if ($field != null) {
     $title = $field->name;
 }
-$navlinks[] = array('name' => format_string($title));
-$navigation = build_navigation($navlinks);
+
+$PAGE->set_title($title);
 
 // Handle deletions
 if (!empty($d)) {
@@ -42,29 +40,38 @@ if (!empty($d)) {
     }
 
     if (!$confirm) {
-        print_header_simple(format_string($title), '', $navigation, '', '', true);
-        notice_yesno(get_string('fielddeleteconfirm', 'facetoface', format_string($field->name)),
-                     "customfield.php?id=$id&amp;d=1&amp;confirm=1&amp;sesskey=$USER->sesskey", $returnurl);
-        print_footer();
+        echo $OUTPUT->header();
+        echo $OUTPUT->heading($title);
+        $optionsyes = array('id' => $id, 'sesskey' => $USER->sesskey, 'd' => 1, 'confirm' => 1);
+        echo $OUTPUT->confirm(get_string('fielddeleteconfirm', 'facetoface', format_string($field->name)),
+            new moodle_url("customfield.php", $optionsyes),
+            new moodle_url($returnurl));
+        echo $OUTPUT->footer();
         exit;
     }
     else {
-   //     begin_sql();
-        if (!$DB->delete_records('facetoface_session_field', 'id', $id)) {
-        //    rollback_sql();
-            print_error('error:couldnotdeletefield', 'facetoface', $returnurl);
+        $transaction = $DB->start_delegated_transaction();
+
+        try {
+            if (!$DB->delete_records('facetoface_session_field', array('id' => $id))) {
+                throw new Exception(get_string('error:couldnotdeletefield', 'facetoface'));
+            }
+
+            if (!$DB->delete_records('facetoface_session_data', array('fieldid' => $id))) {
+                throw new Exception(get_string('error:couldnotdeletefield', 'facetoface'));
+            }
+
+            $transaction->allow_commit();
+        } catch (Exception $e) {
+            $transaction->rollback($e);
         }
-        if (!$DB->delete_records('facetoface_session_data', 'fieldid', $id)) {
-        //    rollback_sql();
-            print_error('error:couldnotdeletefield', 'facetoface', $returnurl);
-        }
-      //  commit_sql();
+
         redirect($returnurl);
     }
 }
 
 $mform = new mod_facetoface_customfield_form(null, compact('id'));
-if ($mform->is_cancelled()){
+if ($mform->is_cancelled()) {
     redirect($returnurl);
 }
 
@@ -88,12 +95,21 @@ if ($fromform = $mform->get_data()) { // Form submitted
         $fromform->possiblevalues = '';
     }
 
-    $todb = new object();
+    $values_list = explode("\n", trim($fromform->possiblevalues));
+    $pos_vals = array();
+    foreach ($values_list as $val) {
+        $trimmed_val = trim($val);
+        if (strlen($trimmed_val) != 0) {
+            $pos_vals[] = $trimmed_val;
+        }
+    }
+
+    $todb = new stdClass();
     $todb->name = trim($fromform->name);
     $todb->shortname = trim($fromform->shortname);
     $todb->type = $fromform->type;
     $todb->defaultvalue = trim($fromform->defaultvalue);
-    $todb->possiblevalues = trim($fromform->possiblevalues);
+    $todb->possiblevalues = implode(CUSTOMFIELD_DELIMITER, $pos_vals);
     $todb->required = $fromform->required;
     $todb->isfilter = $fromform->isfilter;
     $todb->showinsummary = $fromform->showinsummary;
@@ -114,12 +130,14 @@ if ($fromform = $mform->get_data()) { // Form submitted
 }
 elseif ($field != null) { // Edit mode
     // Set values for the form
-    $toform = new object();
+    $toform = new stdClass();
     $toform->name = $field->name;
     $toform->shortname = $field->shortname;
     $toform->type = $field->type;
     $toform->defaultvalue = $field->defaultvalue;
-    $toform->possiblevalues = $field->possiblevalues;
+    $value_array = explode(CUSTOMFIELD_DELIMITER, $field->possiblevalues);
+    $possible_values = implode(PHP_EOL, $value_array);
+    $toform->possiblevalues = $possible_values;
     $toform->required = ($field->required == 1);
     $toform->isfilter = ($field->isfilter == 1);
     $toform->showinsummary = ($field->showinsummary == 1);
@@ -127,12 +145,12 @@ elseif ($field != null) { // Edit mode
     $mform->set_data($toform);
 }
 
-print_header_simple(format_string($title), '', $navigation, '', '', true);
+echo $OUTPUT->header();
 
-print_box_start();
-print_heading($title);
+echo $OUTPUT->box_start();
+echo $OUTPUT->heading($title);
 
 $mform->display();
 
-print_box_end();
-print_footer();
+echo $OUTPUT->box_end();
+echo $OUTPUT->footer();

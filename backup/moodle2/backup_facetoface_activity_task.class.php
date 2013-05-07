@@ -1,7 +1,6 @@
 <?php
 
 require_once($CFG->dirroot . '/mod/facetoface/backup/moodle2/backup_facetoface_stepslib.php'); // Because it exists (must)
-require_once($CFG->dirroot . '/mod/facetoface/backup/moodle2/backup_facetoface_settingslib.php'); // Because it exists (optional)
 
 /**
  * facetoface backup task that provides all the settings and steps to perform one

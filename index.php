@@ -7,12 +7,12 @@ global $DB;
 
 $id = required_param('id', PARAM_INT); // Course Module ID
 
-if (!$course = $DB->get_record('course', array('id'=>$id))) {
+if (!$course = $DB->get_record('course', array('id' => $id))) {
     print_error('error:coursemisconfigured', 'facetoface');
 }
 
 require_course_login($course);
-$context = get_context_instance(CONTEXT_COURSE, $course->id);
+$context = context_course::instance($course->id);
 require_capability('mod/facetoface:view', $context);
 
 add_to_log($course->id, 'facetoface', 'view all', "index.php?id=$course->id");
@@ -26,9 +26,13 @@ $strcourse = get_string('course');
 $strname = get_string('name');
 
 $pagetitle = format_string($strfacetofaces);
-$navlinks[] = array('name' => $pagetitle, 'link' => '', 'type' => 'title');
-$navigation = build_navigation($navlinks);
-print_header_simple($pagetitle, '', $navigation, '', '', true, '', navmenu($course));
+
+$PAGE->set_url('/mod/facetoface/index.php', array('id' => $id));
+
+$PAGE->set_title($pagetitle);
+$PAGE->set_heading($course->fullname);
+
+echo $OUTPUT->header();
 
 if (!$facetofaces = get_all_instances_in_course('facetoface', $course)) {
     notice(get_string('nofacetofaces', 'facetoface'), "../../course/view.php?id=$course->id");
@@ -36,6 +40,9 @@ if (!$facetofaces = get_all_instances_in_course('facetoface', $course)) {
 }
 
 $timenow = time();
+
+$table = new html_table();
+$table->width = '100%';
 
 if ($course->format == 'weeks' && has_capability('mod/facetoface:viewattendees', $context)) {
     $table->head  = array ($strweek, $strfacetofacename, get_string('sign-ups', 'facetoface'));
@@ -66,11 +73,11 @@ foreach ($facetofaces as $facetoface) {
 
     if (!$facetoface->visible) {
         //Show dimmed if the mod is hidden
-        $link = "<a class=\"dimmed\" href=\"view.php?f=$facetoface->id\">$facetoface->name</a>";
+        $link = html_writer::link("view.php?f=$facetoface->id", $facetoface->name, array('class' => 'dimmed'));
     }
     else {
         //Show normal if the mod is visible
-        $link = "<a href=\"view.php?f=$facetoface->id\">$facetoface->name</a>";
+        $link = html_writer::link("view.php?f=$facetoface->id", $facetoface->name);
     }
 
     $printsection = '';
@@ -83,15 +90,15 @@ foreach ($facetofaces as $facetoface) {
 
     $totalsignupcount = 0;
     if ($sessions = facetoface_get_sessions($facetoface->id)) {
-        foreach($sessions as $session) {
+        foreach ($sessions as $session) {
             if (!facetoface_has_session_started($session, $timenow)) {
                 $signupcount = facetoface_get_num_attendees($session->id);
                 $totalsignupcount += $signupcount;
             }
         }
     }
-        
-    $courselink = '<a title="'.$course->shortname.'" href="'.$CFG->wwwroot.'/course/view.php?id='.$course->id.'">'.$course->shortname.'</a>';
+    $url = new moodle_url('/course/view.php', array('id' => $course->id));
+    $courselink = html_writer::link($url, $course->shortname, array('title' => $course->shortname));
     if ($course->format == 'weeks' or $course->format == 'topics') {
         if (has_capability('mod/facetoface:viewattendees', $context)) {
             $table->data[] = array ($courselink, $link, $totalsignupcount);
@@ -105,7 +112,7 @@ foreach ($facetofaces as $facetoface) {
     }
 }
 
-echo "<br />";
+echo html_writer::empty_tag('br');
 
-print_table($table);
-print_footer($course);
+echo html_writer::table($table);
+echo $OUTPUT->footer($course);

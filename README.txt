@@ -1,6 +1,7 @@
 -----------------------------------------------------------------------------
 Face-to-face module for Moodle
 Copyright (C) 2007-2011 Catalyst IT (http://www.catalyst.net.nz)
+Copyright (C) 2011-2013 Totara LMS (http://www.totaralms.com)
 
 This program is free software: you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the Free
@@ -34,7 +35,10 @@ sign-up for a session or cancel.
 Requirements
 -------------
 
-* Moodle 2.x
+* Moodle 2.2+
+
+There is a version for Moodle 2.1 which can be found here:
+https://github.com/totara/facetoface-2.0/tree/moodle-2.1.x
 
 
 Installation
@@ -49,32 +53,25 @@ Installation
    configuration.
 
 
-Integration with the course page
----------------------------------
-
-To display the session dates directly on the course page, add the following
-code to the print_section() function in course/lib.php:
-
---- /home/francois/code/cvs/moodle18/course/lib.php 2007-10-05 20:19:29.000000000 +1300
-+++ course/lib.php  2007-11-06 21:14:08.000000000 +1300
-@@ -1382,6 +1382,10 @@
-                         echo "</span>";
-                     }
-
-+                } elseif ($mod->modname == 'facetoface') {
-+                    include_once($CFG->dirroot.'/mod/facetoface/lib.php');
-+                    echo facetoface_print_coursemodule_info($mod);
-+
-                 } else { // Normal activity
-
-                     //Accessibility: for files get description via icon.
-
 Bugs/patches
 -------------
 
 Feel free to send bug reports (and/or patches!) to the current maintainer:
 
-  Dongyoung Dennis Kim (mynameisdongyoung@gmail.com)
+  Alastair Munro <alastair.munro@totaralms.com>
+
+
+Previous maintainer(s)
+-----------------------
+
+  Aaron Barnes <aaronb@catalyst.net.nz>
+  Francois Marier <francois@catalyst.net.nz>
+
+
+Original design and development
+--------------------------------
+
+  Jonathan Newman <jonathan.newman@catalyst.net.nz>
 
 
 Changes

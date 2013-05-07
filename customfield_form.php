@@ -32,7 +32,7 @@ class mod_facetoface_customfield_form extends moodleform {
         $mform->addElement('text', 'defaultvalue', get_string('setting:defaultvalue', 'facetoface'), 'maxlength="255" size="30"');
         $mform->setType('defaultvalue', PARAM_MULTILANG);
 
-        $mform->addElement('text', 'possiblevalues', get_string('setting:possiblevalues', 'facetoface'), 'size="50"');
+        $mform->addElement('textarea', 'possiblevalues', get_string('setting:possiblevalues', 'facetoface'), 'rows="5" cols="30"');
         $mform->setType('possiblevalues', PARAM_MULTILANG);
         $mform->disabledIf('possiblevalues', 'type', 'eq', 0);
 
@@ -44,5 +44,19 @@ class mod_facetoface_customfield_form extends moodleform {
         $mform->setDefault('showinsummary', true);
 
         $this->add_action_buttons();
+    }
+
+    function validation($data, $files) {
+        global $DB;
+
+        $errors = array();
+        $where     = "id <> ? AND shortname = ?";
+        $params = array($data['id'], $data['shortname']);
+
+        if ($DB->record_exists_select('facetoface_session_field', $where, $params)) {
+            $errors['shortname']= get_string('error:shortnametaken', 'facetoface');
+        }
+
+        return $errors;
     }
 }

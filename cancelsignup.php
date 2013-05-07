@@ -13,10 +13,10 @@ $backtoallsessions = optional_param('backtoallsessions', 0, PARAM_INT);
 if (!$session = facetoface_get_session($s)) {
     print_error('error:incorrectcoursemodulesession', 'facetoface');
 }
-if (!$facetoface = $DB->get_record('facetoface', array('id'=>$session->facetoface))) {
+if (!$facetoface = $DB->get_record('facetoface', array('id' => $session->facetoface))) {
     print_error('error:incorrectfacetofaceid', 'facetoface');
 }
-if (!$course = $DB->get_record('course', array('id'=>$facetoface->course))) {
+if (!$course = $DB->get_record('course', array('id' => $facetoface->course))) {
     print_error('error:coursemisconfigured', 'facetoface');
 }
 if (!$cm = get_coursemodule_from_instance("facetoface", $facetoface->id, $course->id)) {
@@ -24,7 +24,7 @@ if (!$cm = get_coursemodule_from_instance("facetoface", $facetoface->id, $course
 }
 
 require_course_login($course);
-$context = get_context_instance(CONTEXT_COURSE, $course->id);
+$context = context_course::instance($course->id);
 require_capability('mod/facetoface:view', $context);
 
 $returnurl = "$CFG->wwwroot/course/view.php?id=$course->id";
@@ -33,7 +33,7 @@ if ($backtoallsessions) {
 }
 
 $mform = new mod_facetoface_cancelsignup_form(null, compact('s', 'backtoallsessions'));
-if ($mform->is_cancelled()){
+if ($mform->is_cancelled()) {
     redirect($returnurl);
 }
 
@@ -55,14 +55,13 @@ if ($fromform = $mform->get_data()) { // Form submitted
             $error = facetoface_send_cancellation_notice($facetoface, $session, $USER->id);
             if (empty($error)) {
                 if ($session->datetimeknown && $facetoface->cancellationinstrmngr) {
-                    $message .= '<br /><br />'.get_string('cancellationsentmgr', 'facetoface');
+                    $message .= html_writer::empty_tag('br') . html_writer::empty_tag('br') . get_string('cancellationsentmgr', 'facetoface');
                 }
                 else {
-                    $message .= '<br /><br />'.get_string('cancellationsent', 'facetoface');
+                    $message .= html_writer::empty_tag('br') . html_writer::empty_tag('br') . get_string('cancellationsent', 'facetoface');
                 }
-            }
-            else {
-                error($error);
+            } else {
+                print_error($error, 'facetoface');
             }
         }
 
@@ -76,23 +75,21 @@ if ($fromform = $mform->get_data()) { // Form submitted
     redirect($returnurl);
 }
 
-//$navlinks[] = array('name' => get_string('modulenameplural', 'facetoface'), 'link' => "index.php?id=$course->id", 'type' => 'title');
-//$navlinks[] = array('name' => $pagetitle, 'link' => '', 'type' => 'activityinstance');
-//$navigation = build_navigation($navlinks);
 $pagetitle = format_string($facetoface->name);
+
 $PAGE->set_cm($cm);
-$PAGE->set_url('/mod/facetoface/view.php',array('id'=>$cm->id));
+$PAGE->set_url('/mod/facetoface/cancelsignup.php', array('s' => $s, 'backtoallsessions' => $backtoallsessions, 'confirm' => $confirm));
+
 $PAGE->set_title($pagetitle);
 $PAGE->set_heading($course->fullname);
+
 echo $OUTPUT->header();
 
+$heading = get_string('cancelbookingfor', 'facetoface', $facetoface->name);
 
-$heading = get_string('cancelbookingfor', 'facetoface').$facetoface->name;
 $viewattendees = has_capability('mod/facetoface:viewattendees', $context);
 $signedup = facetoface_check_signup($facetoface->id);
 
-//print_box_start();
-//print_heading($heading, 'center');
 echo $OUTPUT->box_start();
 echo $OUTPUT->heading($heading);
 
@@ -104,7 +101,5 @@ else {
     print_error('notsignedup', 'facetoface', $returnurl);
 }
 
-//print_box_end();
-//print_footer($course);
 echo $OUTPUT->box_end();
 echo $OUTPUT->footer($course);
